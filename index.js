@@ -4,6 +4,7 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 const express = require('express')
 const dontenv = require('dotenv')
 const cors = require('cors')
+
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 dontenv.config()
 
@@ -26,24 +27,53 @@ async function run() {
         const db = client.db("docappoint")
         const docappointCollection = db.collection("docappoint")
 
-        app.get('/all-appointments', async (req , res) => {
+        app.get('/all-appointments', async (req, res) => {
             const result = await docappointCollection.find().toArray()
             res.json(result)
         })
+        app.get('/all-appointments/:id', async (req, res) => {
 
-        app.get('/all-appointments/:id', async(req , res) => {
-            const id = req.params.id;
-            const query = {_id: new ObjectId(id)}
-            const result = await docappointCollection.findOne(query);
-            res.send(result);
+            try {
 
-        })
+                const id = req.params.id;
 
-        app.post('/destination' , async(req , res) => {
+                // Check valid ObjectId
+                if (!ObjectId.isValid(id)) {
+                    return res.status(400).json({
+                        message: "Invalid ID"
+                    });
+                }
+
+                const query = {
+                    _id: new ObjectId(id)
+                };
+
+                const result = await docappointCollection.findOne(query);
+
+                if (!result) {
+                    return res.status(404).json({
+                        message: "Doctor not found"
+                    });
+                }
+
+                res.json(result);
+
+            } catch (error) {
+
+                console.log(error);
+
+                res.status(500).json({
+                    message: "Server Error"
+                });
+            }
+        });
+
+
+        app.post('/destination', async (req, res) => {
             const destination = req.body
             console.log(destination);
-           const result = await docappointCollection.insertOne(destination)
-           res.json(result)
+            const result = await docappointCollection.insertOne(destination)
+            res.json(result)
         })
 
 

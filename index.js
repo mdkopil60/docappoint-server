@@ -8,12 +8,14 @@ const cors = require('cors')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 dontenv.config()
 
-const uri = process.env.MONGODB_URI;
+
 const app = express()
 app.use(cors())
 app.use(express.json())
 
 const PORT = process.env.PORT
+const uri = process.env.MONGODB_URI;
+
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -31,6 +33,7 @@ async function run() {
             const result = await docappointCollection.find().toArray()
             res.json(result)
         })
+        
         app.get('/all-appointments/:id', async (req, res) => {
             try {
                 const id = req.params.id;

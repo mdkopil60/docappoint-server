@@ -29,8 +29,7 @@ async function run() {
         const db = client.db("docappoint")
         const docappointCollection = db.collection("docappoint")
         const bookingCollection = db.collection("booking")
-        const userCollection = db.collection("users")
-
+   
         app.get('/all-appointments', async (req, res) => {
             const result = await docappointCollection.find().toArray()
             res.json(result)

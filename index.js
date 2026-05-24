@@ -28,12 +28,14 @@ async function run() {
         await client.connect();
         const db = client.db("docappoint")
         const docappointCollection = db.collection("docappoint")
+        const bookingCollection = db.collection("booking")
+        const userCollection = db.collection("users")
 
         app.get('/all-appointments', async (req, res) => {
             const result = await docappointCollection.find().toArray()
             res.json(result)
         })
-        
+
         app.get('/all-appointments/:id', async (req, res) => {
             try {
                 const id = req.params.id;
@@ -60,13 +62,55 @@ async function run() {
                 });
             }
         });
+        app.patch("/bookings/:id", async(req, res) => {
+            const {id} = req.params
+            const updateData = 
+        })
+        app.get("/bookings", async (req, res) => {
+            const result = await bookingCollection.find().toArray();
+            res.json(result);
+        });
+        app.get("/booking/:id", async (req, res) => {
+            try {
+                const { id } = req.params;
 
+                if (!ObjectId.isValid(id)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Invalid ID"
+                    });
+                }
 
+                const booking = await bookingCollection.findOne({
+                    _id: new ObjectId(id)
+                });
+
+                if (!booking) {
+                    return res.status(404).json({
+                        success: false,
+                        message: "Booking not found"
+                    });
+                }
+
+                res.json(booking);
+
+            } catch (error) {
+                console.log(error);
+                res.status(500).json({
+                    success: false,
+                    message: "Server error"
+                });
+            }
+        });
         app.post('/destination', async (req, res) => {
             const destination = req.body
-            console.log(destination);
             const result = await docappointCollection.insertOne(destination)
             res.json(result)
+        })
+        app.post("/booking", async (req, res) => {
+            const bookingData = req.body
+            const result = await bookingCollection.insertOne(bookingData)
+            res.json(result);
         })
 
 

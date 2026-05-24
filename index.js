@@ -29,7 +29,59 @@ async function run() {
         const db = client.db("docappoint")
         const docappointCollection = db.collection("docappoint")
         const bookingCollection = db.collection("booking")
-   
+        const userCollection = db.collection("user")
+
+        app.get("/user", async (req, res) => {
+            try {
+                const email = req.query.email;
+
+                if (!email) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Email required"
+                    });
+                }
+
+                const user = await userCollection.findOne({ email });
+
+                res.json(user);
+            } catch (error) {
+                res.status(500).json({
+                    success: false,
+                    message: "Server error"
+                });
+            }
+        });
+
+        app.patch("/user/update", async (req, res) => {
+            try {
+                const { name, image, email } = req.body;
+
+                const result = await userCollection.updateOne(
+                    { email },
+                    {
+                        $set: {
+                            name,
+                            image,
+                            updatedAt: new Date(),
+                        },
+                    }
+                );
+
+                res.json({
+                    success: true,
+                    message: "Profile updated",
+                    result,
+                });
+
+            } catch (error) {
+                res.status(500).json({
+                    success: false,
+                    message: "Update failed",
+                });
+            }
+        });
+
         app.get('/all-appointments', async (req, res) => {
             const result = await docappointCollection.find().toArray()
             res.json(result)
@@ -141,30 +193,26 @@ async function run() {
             const result = await bookingCollection.find().toArray();
             res.json(result);
         });
+
         app.get("/booking/:id", async (req, res) => {
             try {
                 const { id } = req.params;
-
                 if (!ObjectId.isValid(id)) {
                     return res.status(400).json({
                         success: false,
                         message: "Invalid ID"
                     });
                 }
-
                 const booking = await bookingCollection.findOne({
                     _id: new ObjectId(id)
                 });
-
                 if (!booking) {
                     return res.status(404).json({
                         success: false,
                         message: "Booking not found"
                     });
                 }
-
                 res.json(booking);
-
             } catch (error) {
                 console.log(error);
                 res.status(500).json({
@@ -173,11 +221,13 @@ async function run() {
                 });
             }
         });
+
         app.post('/destination', async (req, res) => {
             const destination = req.body
             const result = await docappointCollection.insertOne(destination)
             res.json(result)
         })
+
         app.post("/booking", async (req, res) => {
             const bookingData = req.body
             const result = await bookingCollection.insertOne(bookingData)

@@ -62,10 +62,82 @@ async function run() {
                 });
             }
         });
-        app.patch("/bookings/:id", async(req, res) => {
-            const {id} = req.params
-            const updateData = 
-        })
+        app.delete("/booking/:id", async (req, res) => {
+            try {
+                const { id } = req.params;
+
+                if (!ObjectId.isValid(id)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Invalid ID",
+                    });
+                }
+
+                const result = await bookingCollection.deleteOne({
+                    _id: new ObjectId(id),
+                });
+
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({
+                        success: false,
+                        message: "Booking not found",
+                    });
+                }
+
+                res.json({
+                    success: true,
+                    message: "Booking deleted successfully",
+                });
+
+            } catch (error) {
+                res.status(500).json({
+                    success: false,
+                    message: "Delete failed",
+                });
+            }
+        });
+        app.patch("/booking/:id", async (req, res) => {
+            try {
+                const { id } = req.params;
+
+                if (!ObjectId.isValid(id)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Invalid ID",
+                    });
+                }
+
+                const updatedData = req.body;
+
+                const result = await bookingCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    {
+                        $set: updatedData,
+                    }
+                );
+
+                if (result.modifiedCount === 0) {
+                    return res.status(404).json({
+                        success: false,
+                        message: "Nothing updated",
+                    });
+                }
+
+                res.json({
+                    success: true,
+                    message: "Booking updated successfully",
+                    result,
+                });
+
+            } catch (error) {
+                res.status(500).json({
+                    success: false,
+                    message: "Update failed",
+                });
+            }
+        });
+
+
         app.get("/bookings", async (req, res) => {
             const result = await bookingCollection.find().toArray();
             res.json(result);

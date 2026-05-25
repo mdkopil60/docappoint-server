@@ -65,7 +65,7 @@ const verifyToken = (req, res, next) => {
 
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
         console.log("Connected to MongoDB");
 
         const db = client.db("docappoint");
@@ -145,12 +145,12 @@ async function run() {
 
         // ================= BOOKINGS =================
 
-        app.get("/bookings", verifyToken, async (req, res) => {
+        app.get("/bookings", async (req, res) => {
             const result = await bookingCollection.find().toArray();
             res.send(result);
         });
 
-        app.post("/booking", verifyToken, async (req, res) => {
+        app.post("/booking", async (req, res) => {
             const result = await bookingCollection.insertOne(req.body);
 
             res.send({
@@ -176,7 +176,7 @@ async function run() {
             res.send(result);
         });
 
-        await client.db("admin").command({ ping: 1 });
+        // await client.db("admin").command({ ping: 1 });
         console.log("MongoDB Connected");
     } catch (err) {
         console.log(err);

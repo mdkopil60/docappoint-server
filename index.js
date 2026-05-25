@@ -1,252 +1,196 @@
 const dns = require("node:dns");
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
-const express = require('express')
-const dontenv = require('dotenv')
-const cors = require('cors')
+const express = require("express");
+const dotenv = require("dotenv");
+const cors = require("cors");
+const jwt = require("jsonwebtoken");
 
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-dontenv.config()
+const {
+    MongoClient,
+    ServerApiVersion,
+    ObjectId,
+} = require("mongodb");
 
+dotenv.config();
 
-const app = express()
-app.use(cors())
-app.use(express.json())
+const app = express();
 
-const PORT = process.env.PORT
+app.use(cors());
+app.use(express.json());
+
+const PORT = process.env.PORT || 5000;
 const uri = process.env.MONGODB_URI;
+
+if (!uri) throw new Error("MONGODB_URI is missing");
+
+// ================= MONGODB =================
 
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
         strict: true,
         deprecationErrors: true,
-    }
+    },
 });
+
+// ================= JWT MIDDLEWARE =================
+
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized",
+        });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(403).json({
+                success: false,
+                message: "Forbidden",
+            });
+        }
+
+        req.decoded = decoded;
+        next();
+    });
+};
+
+// ================= MAIN =================
+
 async function run() {
     try {
         await client.connect();
-        const db = client.db("docappoint")
-        const docappointCollection = db.collection("docappoint")
-        const bookingCollection = db.collection("booking")
-        const userCollection = db.collection("user")
+        console.log("Connected to MongoDB");
+
+        const db = client.db("docappoint");
+
+        const docappointCollection = db.collection("docappoint");
+        const bookingCollection = db.collection("booking");
+        const userCollection = db.collection("user");
+
+        // ================= JWT =================
+
+        app.post("/jwt", async (req, res) => {
+            const user = req.body;
+
+            const token = jwt.sign(user, process.env.JWT_SECRET, {
+                expiresIn: "7d",
+            });
+
+            res.send({ success: true, token });
+        });
+
+        // ================= USER =================
 
         app.get("/user", async (req, res) => {
-            try {
-                const email = req.query.email;
+            const email = req.query.email;
 
-                if (!email) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Email required"
-                    });
-                }
+            const user = await userCollection.findOne({ email });
 
-                const user = await userCollection.findOne({ email });
-
-                res.json(user);
-            } catch (error) {
-                res.status(500).json({
-                    success: false,
-                    message: "Server error"
-                });
-            }
+            res.send(user);
         });
 
         app.patch("/user/update", async (req, res) => {
-            try {
-                const { name, image, email } = req.body;
+            const { name, image, email } = req.body;
 
-                const result = await userCollection.updateOne(
-                    { email },
-                    {
-                        $set: {
-                            name,
-                            image,
-                            updatedAt: new Date(),
-                        },
-                    }
-                );
+            const result = await userCollection.updateOne(
+                { email },
+                {
+                    $set: {
+                        name,
+                        image,
+                        updatedAt: new Date(),
+                    },
+                }
+            );
 
-                res.json({
-                    success: true,
-                    message: "Profile updated",
-                    result,
-                });
-
-            } catch (error) {
-                res.status(500).json({
-                    success: false,
-                    message: "Update failed",
-                });
-            }
+            res.send({
+                success: true,
+                message: "Profile updated",
+                result,
+            });
         });
 
-        app.get('/all-appointments', async (req, res) => {
-            const result = await docappointCollection.find().toArray()
-            res.json(result)
-        })
+        // ================= APPOINTMENTS =================
 
-        app.get('/all-appointments/:id', async (req, res) => {
-            try {
-                const id = req.params.id;
-                // Check valid ObjectId
-                if (!ObjectId.isValid(id)) {
-                    return res.status(400).json({
-                        message: "Invalid ID"
-                    });
-                }
-                const query = {
-                    _id: new ObjectId(id)
-                };
-                const result = await docappointCollection.findOne(query);
-                if (!result) {
-                    return res.status(404).json({
-                        message: "Doctor not found"
-                    });
-                }
-                res.json(result);
-            } catch (error) {
-                console.log(error);
-                res.status(500).json({
-                    message: "Server Error"
-                });
-            }
-        });
-        app.delete("/booking/:id", async (req, res) => {
-            try {
-                const { id } = req.params;
-
-                if (!ObjectId.isValid(id)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Invalid ID",
-                    });
-                }
-
-                const result = await bookingCollection.deleteOne({
-                    _id: new ObjectId(id),
-                });
-
-                if (result.deletedCount === 0) {
-                    return res.status(404).json({
-                        success: false,
-                        message: "Booking not found",
-                    });
-                }
-
-                res.json({
-                    success: true,
-                    message: "Booking deleted successfully",
-                });
-
-            } catch (error) {
-                res.status(500).json({
-                    success: false,
-                    message: "Delete failed",
-                });
-            }
-        });
-        app.patch("/booking/:id", async (req, res) => {
-            try {
-                const { id } = req.params;
-
-                if (!ObjectId.isValid(id)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Invalid ID",
-                    });
-                }
-
-                const updatedData = req.body;
-
-                const result = await bookingCollection.updateOne(
-                    { _id: new ObjectId(id) },
-                    {
-                        $set: updatedData,
-                    }
-                );
-
-                if (result.modifiedCount === 0) {
-                    return res.status(404).json({
-                        success: false,
-                        message: "Nothing updated",
-                    });
-                }
-
-                res.json({
-                    success: true,
-                    message: "Booking updated successfully",
-                    result,
-                });
-
-            } catch (error) {
-                res.status(500).json({
-                    success: false,
-                    message: "Update failed",
-                });
-            }
+        app.get("/all-appointments", async (req, res) => {
+            const result = await docappointCollection.find().toArray();
+            res.send(result);
         });
 
+        app.get("/all-appointments/:id", async (req, res) => {
+            const { id } = req.params;
 
-        app.get("/bookings", async (req, res) => {
+            const result = await docappointCollection.findOne({
+                _id: new ObjectId(id),
+            });
+
+            res.send(result);
+        });
+
+        app.post("/destination", async (req, res) => {
+            const result = await docappointCollection.insertOne(req.body);
+
+            res.send({
+                success: true,
+                result,
+            });
+        });
+
+        // ================= BOOKINGS =================
+
+        app.get("/bookings", verifyToken, async (req, res) => {
             const result = await bookingCollection.find().toArray();
-            res.json(result);
+            res.send(result);
         });
 
-        app.get("/booking/:id", async (req, res) => {
-            try {
-                const { id } = req.params;
-                if (!ObjectId.isValid(id)) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Invalid ID"
-                    });
-                }
-                const booking = await bookingCollection.findOne({
-                    _id: new ObjectId(id)
-                });
-                if (!booking) {
-                    return res.status(404).json({
-                        success: false,
-                        message: "Booking not found"
-                    });
-                }
-                res.json(booking);
-            } catch (error) {
-                console.log(error);
-                res.status(500).json({
-                    success: false,
-                    message: "Server error"
-                });
-            }
+        app.post("/booking", verifyToken, async (req, res) => {
+            const result = await bookingCollection.insertOne(req.body);
+
+            res.send({
+                success: true,
+                result,
+            });
         });
 
-        app.post('/destination', async (req, res) => {
-            const destination = req.body
-            const result = await docappointCollection.insertOne(destination)
-            res.json(result)
-        })
+        app.patch("/booking/:id", async (req, res) => {
+            const result = await bookingCollection.updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: req.body }
+            );
 
-        app.post("/booking", async (req, res) => {
-            const bookingData = req.body
-            const result = await bookingCollection.insertOne(bookingData)
-            res.json(result);
-        })
+            res.send(result);
+        });
 
+        app.delete("/booking/:id", async (req, res) => {
+            const result = await bookingCollection.deleteOne({
+                _id: new ObjectId(req.params.id),
+            });
 
+            res.send(result);
+        });
 
         await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-        // await client.close();
+        console.log("MongoDB Connected");
+    } catch (err) {
+        console.log(err);
     }
 }
+
 run().catch(console.dir);
-app.get('/', (req, res) => {
-    res.send('server is running on port fine')
-})
+
+// ================= ROOT =================
+
+app.get("/", (req, res) => {
+    res.send("Server running");
+});
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-})
+    console.log("Server running on", PORT);
+});

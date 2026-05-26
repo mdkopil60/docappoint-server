@@ -73,9 +73,7 @@ async function run() {
         const docappointCollection = db.collection("docappoint");
         const bookingCollection = db.collection("booking");
         const userCollection = db.collection("user");
-
         // ================= JWT =================
-
         app.post("/jwt", async (req, res) => {
             const user = req.body;
 
@@ -85,9 +83,7 @@ async function run() {
 
             res.send({ success: true, token });
         });
-
         // ================= USER =================
-
         app.get("/user", async (req, res) => {
             const email = req.query.email;
 

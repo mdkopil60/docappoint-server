@@ -6,7 +6,7 @@ Backend server for the DocAppoint doctor appointment booking platform.
 
 ## 🌐 Live API
 
-🔗 Server Link: https://your-server-url.com
+🔗 Server Link: https://docappoint-server-lyart.vercel.app/
 
 ---
 
